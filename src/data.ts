@@ -21,17 +21,20 @@ export const getVaults = memoizee(
       poolTvlUsd
     );
     const { managementFee } = await getVaultData(vaultAddress);
+    const lpInfo = await getLPMetadata(vaultAddress);
+    const plpInfo = await getPLPMetadata(vaultAddress);
+    const plpPrice = await getVaultLPPriceUSD(lpPrice, vaultAddress);
 
     return [
       {
         name: VAULT_NAME,
         vaultAddress: VAULT_ADDRESS,
         vaultAddressFormatted,
-        plpMetadata: (await getPLPMetadata(vaultAddress)).metadata,
-        lpMetadata: (await getLPMetadata(vaultAddress)).metadata,
-        plpPriceUsd: (await getVaultLPPriceUSD(lpPrice, vaultAddress)).toFixed(
-          2
-        ),
+        lpMetadata: lpInfo.metadata,
+        lpTotalSupply: lpInfo.total_supply,
+        plpMetadata: plpInfo.metadata,
+        plpTotalSupply: plpInfo.total_supply,
+        plpPriceUsd: plpPrice.toFixed(2),
         lpPriceUsd: lpPrice.toFixed(2),
         tvlUsd: tvlUsd.toFixed(2),
         dpr: rewardsStats.dpr.toFixed(4),
