@@ -1,0 +1,30 @@
+{
+  "name": "parraton-api",
+  "version": "1.0.0",
+  "license": "MIT",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "dev": "tsx --watch src/index.ts",
+    "ts": "tsc --pretty"
+  },
+  "devDependencies": {
+    "@types/async-retry": "^1.4.8",
+    "@types/memoizee": "^0.4.11",
+    "@types/node": "^20.12.7",
+    "tsx": "^4.7.2",
+    "typescript": "^5.4.5"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "@parraton/sdk": "^1.1.0",
+    "@ton/core": "^0.57.0",
+    "@ton/crypto": "^3.3.0",
+    "@ton/ton": "^15.0.0",
+    "async-retry": "^1.3.3",
+    "dotenv": "^16.4.5",
+    "fastify": "^4.26.2",
+    "memoizee": "^0.4.17",
+    "nanoid": "^5.0.7",
+    "tonapi-sdk-js": "^2.0.1"
+  }
+}
