@@ -11,28 +11,34 @@ import { RETRY_CONFIG, VAULT_ADDRESS, VAULT_NAME } from './constants';
 
 export const getVaults = memoizee(
   async () => {
-    const lpAddress = await getLPAddress(VAULT_ADDRESS);
+    const vaultAddress = Address.parse(VAULT_ADDRESS);
+    const vaultAddressFormatted = vaultAddress.toString();
+    const lpAddress = await getLPAddress(vaultAddress);
     const { lpPrice, poolTvlUsd } = await getDedustLPInfo(lpAddress.toString());
-    const tvlUsd = await getVaultTVLUSD(VAULT_ADDRESS, lpPrice);
+    const tvlUsd = await getVaultTVLUSD(vaultAddress, lpPrice);
     const rewardsStats = await getRewardsStats(
       lpAddress.toString(),
       poolTvlUsd
     );
+    const { managementFee } = await getVaultData(vaultAddress);
 
     return [
       {
         name: VAULT_NAME,
         vaultAddress: VAULT_ADDRESS,
-        plpMetadata: (await getPLPMetadata(VAULT_ADDRESS)).metadata,
-        lpMetadata: (await getLPMetadata(VAULT_ADDRESS)).metadata,
-        lpPriceUsd: lpPrice.toFixed(2),
-        plpPriceUsd: (await getVaultLPPriceUSD(lpPrice, VAULT_ADDRESS)).toFixed(
+        vaultAddressFormatted,
+        plpMetadata: (await getPLPMetadata(vaultAddress)).metadata,
+        lpMetadata: (await getLPMetadata(vaultAddress)).metadata,
+        plpPriceUsd: (await getVaultLPPriceUSD(lpPrice, vaultAddress)).toFixed(
           2
         ),
+        lpPriceUsd: lpPrice.toFixed(2),
         tvlUsd: tvlUsd.toFixed(2),
+        dpr: rewardsStats.dpr.toFixed(4),
         apr: rewardsStats.apr.toFixed(4),
         apy: rewardsStats.apy.toFixed(4),
         dailyUsdRewards: rewardsStats.daily.toFixed(4),
+        managementFee: managementFee.toString(),
       },
     ];
   },
@@ -44,8 +50,8 @@ export const getVaults = memoizee(
 );
 
 const getPLPMetadata = memoizee(
-  async (vaultAddress: string) => {
-    return tonApiClient.jettons.getJettonInfo(vaultAddress);
+  async (vaultAddress: Address) => {
+    return tonApiClient.jettons.getJettonInfo(vaultAddress.toString());
   },
   {
     maxAge: 24 * 60 * 60 * 1000, // 1 day
@@ -55,9 +61,8 @@ const getPLPMetadata = memoizee(
 );
 
 const getLPAddress = memoizee(
-  async (vaultAddress: string) => {
-    const vaultAddressParsed = Address.parse(vaultAddress.toString());
-    const strategyInfo = await getStrategyInfoByVault(vaultAddressParsed);
+  async (vaultAddress: Address) => {
+    const strategyInfo = await getStrategyInfoByVault(vaultAddress);
     return strategyInfo.poolAddress;
   },
   {
@@ -68,7 +73,7 @@ const getLPAddress = memoizee(
 );
 
 const getLPMetadata = memoizee(
-  async (vaultAddress: string) => {
+  async (vaultAddress: Address) => {
     const lpAddress = await getLPAddress(vaultAddress);
     return tonApiClient.jettons.getJettonInfo(lpAddress.toString());
   },
@@ -196,8 +201,8 @@ const getAllDedustAssets = memoizee(
 );
 
 const getVaultLPPriceUSD = memoizee(
-  async (lpPrice: number, vaultAddress: string) => {
-    const rawVault = Vault.createFromAddress(Address.parse(vaultAddress));
+  async (lpPrice: number, vaultAddress: Address) => {
+    const rawVault = Vault.createFromAddress(vaultAddress);
     const vault = tonClient.open(rawVault);
     const estimatedLpAmount = await asyncRetry(
       () => vault.getEstimatedLpAmount(1_000_000_000n),
@@ -218,18 +223,18 @@ const getVaultLPPriceUSD = memoizee(
 );
 
 const getVaultTVLUSD = memoizee(
-  async (vaultAddress: string, lpPriceUSD: number) => {
+  async (vaultAddress: Address, lpPriceUSD: number) => {
     const {
       last: { seqno },
     } = await asyncRetry(() => tonClient.getLastBlock(), RETRY_CONFIG);
     const { account } = await asyncRetry(
-      () => tonClient.getAccountLite(seqno, Address.parse(vaultAddress)),
+      () => tonClient.getAccountLite(seqno, vaultAddress),
       RETRY_CONFIG
     );
     const balance = fromNano(account.balance.coins);
     const tonPrice = await getTonPrice();
 
-    const vaultData = await getVaultData(Address.parse(vaultAddress));
+    const vaultData = await getVaultData(vaultAddress);
     const precision = 1000;
 
     const tvl =
@@ -312,8 +317,9 @@ const getRewardsStats = memoizee(
     const apy = (1 + apr / 365) ** 365 - 1;
 
     return {
-      apy,
-      apr,
+      dpr: (apr * 100) / 365,
+      apr: apr * 100,
+      apy: apy * 100,
       daily: dailyRewardsUsd,
     };
   },
