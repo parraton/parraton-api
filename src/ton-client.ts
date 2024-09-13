@@ -1,7 +1,13 @@
 import { TonClient4 } from '@ton/ton';
-import { TON_CLIENT_URL } from './config';
+import { getHttpV4Endpoint } from '@orbs-network/ton-access';
 
-export const tonClient = new TonClient4({
-  endpoint: TON_CLIENT_URL,
-  timeout: 60_000,
-});
+const endpointPromise = getHttpV4Endpoint();
+
+export const tonClient = (async () => {
+  const endpoint = await endpointPromise;
+
+  return new TonClient4({
+    endpoint,
+    timeout: 60_000,
+  });
+})();

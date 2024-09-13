@@ -4,7 +4,7 @@ import fastifyCors from '@fastify/cors';
 import { HOST, PORT } from './config';
 import { getVaults } from './data';
 
-const getVaultsWithCacheFallback = withCacheFallback(getVaults, 60_000 * 2);
+const getVaultsWithCacheFallback = withCacheFallback(getVaults, 60_000 * 4);
 
 export async function bootstrapApp() {
   const app = fastify({ logger: true });
@@ -21,6 +21,8 @@ export async function bootstrapApp() {
 
       return vaults;
     } catch (error) {
+      console.error(error);
+
       reply.status(500).send({
         error: 'Internal server error',
       });
@@ -52,6 +54,8 @@ function withCacheFallback<T>(
 
       return value;
     } catch (error) {
+      console.error(error);
+
       if (cache && cache.ttl > Date.now() && cache.value) {
         return cache.value;
       }
