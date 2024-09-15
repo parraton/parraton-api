@@ -12,6 +12,9 @@ export const TONAPI_URL = process.env.TONAPI_URL || 'https://tonapi.io';
 export const TON_CLIENT_URL =
   process.env.TON_CLIENT_URL || 'https://toncenter.com/api/v2/jsonRPC';
 
+export const DEDUST_API_URL =
+  process.env.DEDUST_API_URL || 'https://api.dedust.io/v3/graphql';
+
 export const TONCENTER_API_KEY = process.env.TONCENTER_API_KEY || '';
 
 /* helpers */

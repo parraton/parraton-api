@@ -8,6 +8,7 @@ import { tonClient } from './ton-client';
 import { tonApiClient } from './ton-api';
 
 import { RETRY_CONFIG, VAULT_ADDRESSES } from './constants';
+import { DEDUST_API_URL } from './config';
 
 export const getVaults = memoizee(
   async () => {
@@ -400,8 +401,7 @@ const fetchDedustV3Api = async <Response = unknown, Vars = unknown>(
   query: string,
   variables: Vars
 ): Promise<Response> => {
-  const url = 'https://api.dedust.io/v3/graphql';
-  const response = await fetch(url, {
+  const response = await fetch(DEDUST_API_URL, {
     method: 'POST',
     body: JSON.stringify({
       operationName,
