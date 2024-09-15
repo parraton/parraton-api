@@ -24,6 +24,7 @@ export const getVaults = memoizee(
     const lpInfo = await getLPMetadata(vaultAddress);
     const plpInfo = await getPLPMetadata(vaultAddress);
     const plpPrice = await getVaultLPPriceUSD(lpPrice, vaultAddress);
+    const pendingRewardsUSD = await getPendingRewardsUSD(vaultAddress);
 
     return [
       {
@@ -37,6 +38,7 @@ export const getVaults = memoizee(
         plpPriceUsd: plpPrice.toFixed(2),
         lpPriceUsd: lpPrice.toFixed(2),
         tvlUsd: tvlUsd.toFixed(2),
+        pendingRewardsUSD: pendingRewardsUSD.toFixed(2),
         dpr: rewardsStats.dpr.toFixed(4),
         apr: rewardsStats.apr.toFixed(4),
         apy: rewardsStats.apy.toFixed(4),
@@ -225,8 +227,24 @@ const getVaultLPPriceUSD = memoizee(
   }
 );
 
-const getVaultTVLUSD = memoizee(
-  async (vaultAddress: Address, lpPriceUSD: number) => {
+const getPendingRewardsUSD = memoizee(
+  async (vaultAddress: Address) => {
+    const balance = await getAccountTonBalance(vaultAddress);
+    const vaultData = await getVaultData(vaultAddress);
+    const tonPrice = await getTonPrice();
+
+    return (
+      (Number(balance) - Number(fromNano(vaultData.managementFee))) * tonPrice
+    );
+  },
+  {
+    maxAge: 60_000,
+    promise: true,
+  }
+);
+
+const getAccountTonBalance = memoizee(
+  async (accountAddress: Address) => {
     const {
       last: { seqno },
     } = await asyncRetry(
@@ -234,10 +252,21 @@ const getVaultTVLUSD = memoizee(
       RETRY_CONFIG
     );
     const { account } = await asyncRetry(
-      async () => (await tonClient).getAccountLite(seqno, vaultAddress),
+      async () => (await tonClient).getAccountLite(seqno, accountAddress),
       RETRY_CONFIG
     );
     const balance = fromNano(account.balance.coins);
+    return balance;
+  },
+  {
+    maxAge: 60_000,
+    promise: true,
+  }
+);
+
+const getVaultTVLUSD = memoizee(
+  async (vaultAddress: Address, lpPriceUSD: number) => {
+    const balance = await getAccountTonBalance(vaultAddress);
     const tonPrice = await getTonPrice();
 
     const vaultData = await getVaultData(vaultAddress);
