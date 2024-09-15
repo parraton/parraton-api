@@ -1,14 +1,15 @@
 import memoizee from 'memoizee';
 import asyncRetry from 'async-retry';
 
-import { Address, fromNano } from '@ton/core';
+import { Address, Cell, Dictionary, fromNano } from '@ton/core';
 import { TonJettonTonStrategy, Vault } from '@parraton/sdk';
 
 import { tonClient } from './ton-client';
 import { tonApiClient } from './ton-api';
 
 import { RETRY_CONFIG, VAULT_ADDRESSES } from './constants';
-import { DEDUST_API_URL } from './config';
+import { DEDUST_API_URL, IPFS_GATEWAY } from './config';
+import { DistributionAccount, DistributionPool } from '@dedust/apiary-v1';
 
 export const getVaults = memoizee(
   async () => {
@@ -108,6 +109,66 @@ const getVaultData = memoizee(
     const vault = (await tonClient).open(rawVault);
 
     return asyncRetry(() => vault.getVaultData(), RETRY_CONFIG);
+  },
+  {
+    maxAge: 60_000,
+    promise: true,
+  }
+);
+
+const getDistributionPool = memoizee(
+  async (distributionPoolAddress: Address) => {
+    const rawPool = DistributionPool.createFromAddress(distributionPoolAddress);
+    const pool = (await tonClient).open(rawPool);
+    return pool;
+  },
+  {
+    maxAge: 60_000,
+    promise: true,
+  }
+);
+
+const getDistributionAccountClaimedRewards = memoizee(
+  async (distributionPoolAddress: Address, accountAddress: Address) => {
+    const pool = await getDistributionPool(distributionPoolAddress);
+
+    const distributionAccountAddress = await pool.getAccountAddress(
+      accountAddress
+    );
+    const rawDistributionAccount = DistributionAccount.createFromAddress(
+      distributionAccountAddress
+    );
+    const distributionAccount = (await tonClient).open(rawDistributionAccount);
+
+    if (!(await getAccountActive(accountAddress))) {
+      return 0n;
+    }
+    const { totalPaid } = await asyncRetry(
+      () => distributionAccount.getAccountData(),
+      RETRY_CONFIG
+    );
+    return totalPaid;
+  },
+  {
+    maxAge: 60_000,
+    promise: true,
+  }
+);
+
+const getDistributionAccountAccumulatedRewards = memoizee(
+  async (distributionPoolAddress: Address, accountAddress: Address) => {
+    const pool = await getDistributionPool(distributionPoolAddress);
+    const { dataUri } = await asyncRetry(
+      () => pool.getRewardsData(),
+      RETRY_CONFIG
+    );
+
+    if (!dataUri) {
+      return 0n;
+    }
+    const rewardsDictionary = await fetchDictionaryFromIpfs(dataUri);
+    const rewards = rewardsDictionary.get(accountAddress) ?? 0n;
+    return rewards;
   },
   {
     maxAge: 60_000,
@@ -245,10 +306,14 @@ const getPendingRewardsUSD = memoizee(
   async (vaultAddress: Address) => {
     const balance = await getAccountTonBalance(vaultAddress);
     const vaultData = await getVaultData(vaultAddress);
+    const unclaimedRewards = await getUnclaimedDedustRewards(vaultAddress);
     const tonPrice = await getTonPrice();
 
     return (
-      (Number(balance) - Number(fromNano(vaultData.managementFee))) * tonPrice
+      (Number(balance) +
+        Number(unclaimedRewards) -
+        Number(fromNano(vaultData.managementFee))) *
+      tonPrice
     );
   },
   {
@@ -271,6 +336,45 @@ const getAccountTonBalance = memoizee(
     );
     const balance = fromNano(account.balance.coins);
     return balance;
+  },
+  {
+    maxAge: 60_000,
+    promise: true,
+  }
+);
+
+const getAccountActive = memoizee(
+  async (accountAddress: Address) => {
+    const {
+      last: { seqno },
+    } = await asyncRetry(
+      async () => (await tonClient).getLastBlock(),
+      RETRY_CONFIG
+    );
+    const { account } = await asyncRetry(
+      async () => (await tonClient).getAccountLite(seqno, accountAddress),
+      RETRY_CONFIG
+    );
+    return account.state.type === 'active';
+  },
+  {
+    maxAge: 60_000,
+    promise: true,
+  }
+);
+
+const getUnclaimedDedustRewards = memoizee(
+  async (vaultAddress: Address) => {
+    const vaultData = await getVaultData(vaultAddress);
+    const claimedRewards = await getDistributionAccountClaimedRewards(
+      vaultData.distributionPoolAddress,
+      vaultAddress
+    );
+    const accumulatedRewards = await getDistributionAccountAccumulatedRewards(
+      vaultData.distributionPoolAddress,
+      vaultAddress
+    );
+    return fromNano(accumulatedRewards - claimedRewards);
   },
   {
     maxAge: 60_000,
@@ -415,4 +519,26 @@ const fetchDedustV3Api = async <Response = unknown, Vars = unknown>(
 
   const json = (await response.json()) as { data: Response };
   return json.data;
+};
+
+export const fetchDictionaryFromIpfs = memoizee(
+  async (dataUri: string) => {
+    const response = await fetch(IPFS_GATEWAY + dataUri.replace('ipfs://', ''));
+
+    const merkleTreeBOC = await response.arrayBuffer();
+
+    const buffer = Buffer.from(merkleTreeBOC);
+
+    return convertBufferToDictionary(buffer);
+  },
+  {
+    maxAge: 60_000 * 5,
+    promise: true,
+  }
+);
+
+const convertBufferToDictionary = (buffer: Buffer) => {
+  return Cell.fromBoc(buffer)[0]
+    .beginParse()
+    .loadDictDirect(Dictionary.Keys.Address(), Dictionary.Values.BigVarUint(4));
 };

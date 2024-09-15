@@ -17,6 +17,8 @@ export const DEDUST_API_URL =
 
 export const TONCENTER_API_KEY = process.env.TONCENTER_API_KEY || '';
 
+export const IPFS_GATEWAY =
+  process.env.IPFS_GATEWAY || 'https://gateway.pinata.cloud/ipfs/';
 /* helpers */
 function integerWithFallback(key: string, defaultValue: number) {
   const env = process.env[key];
