@@ -7,11 +7,26 @@ import { TonJettonTonStrategy, Vault } from '@parraton/sdk';
 import { tonClient } from './ton-client';
 import { tonApiClient } from './ton-api';
 
-import { RETRY_CONFIG, VAULT_ADDRESS, VAULT_NAME } from './constants';
+import { RETRY_CONFIG, VAULT_ADDRESSES } from './constants';
 
 export const getVaults = memoizee(
   async () => {
-    const vaultAddress = Address.parse(VAULT_ADDRESS);
+    const vaults = [];
+    for (const vaultAddress of VAULT_ADDRESSES) {
+      const vaultData = await getVault(Address.parse(vaultAddress));
+      vaults.push(vaultData);
+    }
+    return vaults;
+  },
+  {
+    maxAge: 60_000,
+    promise: true,
+    preFetch: true,
+  }
+);
+
+export const getVault = memoizee(
+  async (vaultAddress: Address) => {
     const vaultAddressFormatted = vaultAddress.toString();
     const lpAddress = await getLPAddress(vaultAddress);
     const { lpPrice, poolTvlUsd } = await getDedustLPInfo(lpAddress.toString());
@@ -26,26 +41,24 @@ export const getVaults = memoizee(
     const plpPrice = await getVaultLPPriceUSD(lpPrice, vaultAddress);
     const pendingRewardsUSD = await getPendingRewardsUSD(vaultAddress);
 
-    return [
-      {
-        name: VAULT_NAME,
-        vaultAddress: VAULT_ADDRESS,
-        vaultAddressFormatted,
-        lpMetadata: lpInfo.metadata,
-        lpTotalSupply: lpInfo.total_supply,
-        plpMetadata: plpInfo.metadata,
-        plpTotalSupply: plpInfo.total_supply,
-        plpPriceUsd: plpPrice.toFixed(2),
-        lpPriceUsd: lpPrice.toFixed(2),
-        tvlUsd: tvlUsd.toFixed(2),
-        pendingRewardsUSD: pendingRewardsUSD.toFixed(2),
-        dpr: rewardsStats.dpr.toFixed(4),
-        apr: rewardsStats.apr.toFixed(4),
-        apy: rewardsStats.apy.toFixed(4),
-        dailyUsdRewards: rewardsStats.daily.toFixed(4),
-        managementFee: managementFee.toString(),
-      },
-    ];
+    return {
+      name: lpInfo.metadata.name,
+      vaultAddress: vaultAddress.toString(),
+      vaultAddressFormatted,
+      lpMetadata: lpInfo.metadata,
+      lpTotalSupply: lpInfo.total_supply,
+      plpMetadata: plpInfo.metadata,
+      plpTotalSupply: plpInfo.total_supply,
+      plpPriceUsd: plpPrice.toFixed(2),
+      lpPriceUsd: lpPrice.toFixed(2),
+      tvlUsd: tvlUsd.toFixed(2),
+      pendingRewardsUSD: pendingRewardsUSD.toFixed(2),
+      dpr: rewardsStats.dpr.toFixed(4),
+      apr: rewardsStats.apr.toFixed(4),
+      apy: rewardsStats.apy.toFixed(4),
+      dailyUsdRewards: rewardsStats.daily.toFixed(4),
+      managementFee: managementFee.toString(),
+    };
   },
   {
     maxAge: 60_000,
