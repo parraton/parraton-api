@@ -7,15 +7,15 @@ import { TonJettonTonStrategy, Vault } from '@parraton/sdk';
 import { tonClient } from './ton-client';
 import { tonApiClient } from './ton-api';
 
-import { RETRY_CONFIG, VAULT_ADDRESSES } from './constants';
+import { RETRY_CONFIG, VAULT_CONFIGS, VaultConfig } from './constants';
 import { DEDUST_API_URL, IPFS_GATEWAY } from './config';
 import { DistributionAccount, DistributionPool } from '@dedust/apiary-v1';
 
 export const getVaults = memoizee(
   async () => {
     const vaults = [];
-    for (const vaultAddress of VAULT_ADDRESSES) {
-      const vaultData = await getVault(Address.parse(vaultAddress));
+    for (const vaultConfig of VAULT_CONFIGS) {
+      const vaultData = await getVault(vaultConfig);
       vaults.push(vaultData);
     }
     return vaults;
@@ -28,7 +28,8 @@ export const getVaults = memoizee(
 );
 
 export const getVault = memoizee(
-  async (vaultAddress: Address) => {
+  async (vaultConfig: VaultConfig) => {
+    const vaultAddress = Address.parse(vaultConfig.address);
     const vaultAddressFormatted = vaultAddress.toString();
     const lpAddress = await getLPAddress(vaultAddress);
     const { lpPrice, poolTvlUsd } = await getDedustLPInfo(lpAddress.toString());
@@ -37,11 +38,13 @@ export const getVault = memoizee(
       lpAddress.toString(),
       poolTvlUsd
     );
-    const { managementFee } = await getVaultData(vaultAddress);
+    const { managementFee, depositedLp } = await getVaultData(vaultAddress);
+    const revenue = await getManagementFeeUSD(vaultAddress);
     const lpInfo = await getLPMetadata(vaultAddress);
     const plpInfo = await getPLPMetadata(vaultAddress);
     const plpPrice = await getVaultLPPriceUSD(lpPrice, vaultAddress);
     const pendingRewardsUSD = await getPendingRewardsUSD(vaultAddress);
+    const kpis = vaultConfig.kpis;
 
     return {
       name: lpInfo.metadata.name,
@@ -60,6 +63,22 @@ export const getVault = memoizee(
       apy: rewardsStats.apy.toFixed(4),
       dailyUsdRewards: rewardsStats.daily.toFixed(4),
       managementFee: managementFee.toString(),
+      kpis: {
+        tvl: {
+          target: kpis.tvl.target,
+          current: tvlUsd.toFixed(2),
+        },
+        liquidityFraction: {
+          target: kpis.liquidityFraction.target,
+          current: (Number(depositedLp) / Number(lpInfo.total_supply)).toFixed(
+            10
+          ),
+        },
+        revenue: {
+          target: kpis.revenue.target,
+          current: revenue,
+        },
+      },
     };
   },
   {
@@ -375,6 +394,18 @@ const getUnclaimedDedustRewards = memoizee(
       vaultAddress
     );
     return fromNano(accumulatedRewards - claimedRewards);
+  },
+  {
+    maxAge: 60_000,
+    promise: true,
+  }
+);
+
+const getManagementFeeUSD = memoizee(
+  async (vaultAddress: Address) => {
+    const tonPrice = await getTonPrice();
+    const { managementFee } = await getVaultData(vaultAddress);
+    return Number(fromNano(managementFee)) * tonPrice;
   },
   {
     maxAge: 60_000,
