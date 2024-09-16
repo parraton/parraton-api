@@ -27,10 +27,10 @@ export const VAULT_CONFIGS: VaultConfig[] = [
         target: '100000',
       },
       liquidityFraction: {
-        target: '0.1',
+        target: '0.001',
       },
       revenue: {
-        target: '100',
+        target: '1000',
       },
     },
   },
