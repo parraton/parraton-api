@@ -374,7 +374,6 @@ const getAccountActive = memoizee(
       async () => (await tonClient).getAccountLite(seqno, accountAddress),
       RETRY_CONFIG
     );
-    console.log('getAccountActive', account);
     return account.state.type === 'active';
   },
   {
