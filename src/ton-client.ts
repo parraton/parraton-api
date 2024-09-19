@@ -1,10 +1,11 @@
 import { TonClient4 } from '@ton/ton';
-import { getHttpV4Endpoint } from '@orbs-network/ton-access';
+// import { getHttpV4Endpoint } from '@orbs-network/ton-access';
+import { TON_CLIENT_URL } from './config';
 
-const endpointPromise = getHttpV4Endpoint();
+// const endpointPromise = getHttpV4Endpoint();
 
 export const tonClient = (async () => {
-  const endpoint = await endpointPromise;
+  const endpoint = TON_CLIENT_URL;
 
   return new TonClient4({
     endpoint,
