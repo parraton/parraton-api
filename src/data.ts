@@ -159,7 +159,7 @@ const getDistributionAccountClaimedRewards = memoizee(
     );
     const distributionAccount = (await tonClient).open(rawDistributionAccount);
 
-    if (!(await getAccountActive(accountAddress))) {
+    if (!(await getAccountActive(distributionAccount.address))) {
       return 0n;
     }
     const { totalPaid } = await asyncRetry(
@@ -374,6 +374,7 @@ const getAccountActive = memoizee(
       async () => (await tonClient).getAccountLite(seqno, accountAddress),
       RETRY_CONFIG
     );
+    console.log('getAccountActive', account);
     return account.state.type === 'active';
   },
   {
