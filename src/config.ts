@@ -12,6 +12,7 @@ export const TONAPI_URL = process.env.TONAPI_URL || 'https://tonapi.io';
 export const TON_CLIENT_URL =
   process.env.TON_CLIENT_URL || 'https://mainnet-v4.tonhubapi.com';
 
+
 export const DEDUST_API_URL =
   process.env.DEDUST_API_URL || 'https://api.dedust.io/v3/graphql';
 
