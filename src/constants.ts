@@ -34,6 +34,36 @@ export const VAULT_CONFIGS: VaultConfig[] = [
       },
     },
   },
+  {
+    address:
+      '0:b5bf01c8d51dff89a575321292dceb0b9cf96fbfb5a6f7c3c1a6d4db3c0c8aab',
+    kpis: {
+      tvl: {
+        target: '100000',
+      },
+      liquidityFraction: {
+        target: '0.001',
+      },
+      revenue: {
+        target: '1000',
+      },
+    },
+  },
+  {
+    address:
+      '0:2b3c1f89500d2127c97f45778599a3745b48deb4d8fd22d6f3460adad9ac7133',
+    kpis: {
+      tvl: {
+        target: '100000',
+      },
+      liquidityFraction: {
+        target: '0.001',
+      },
+      revenue: {
+        target: '1000',
+      },
+    },
+  },
 ];
 
 export const RETRY_CONFIG = {
