@@ -125,7 +125,7 @@ const getLPMetadata = memoizee(
 const getVaultData = memoizee(
   async (vaultAddress: Address) => {
     const rawVault = Vault.createFromAddress(vaultAddress);
-    const vault = (await tonClient).open(rawVault);
+    const vault = tonClient.open(rawVault);
 
     return asyncRetry(() => vault.getVaultData(), RETRY_CONFIG);
   },
@@ -138,7 +138,7 @@ const getVaultData = memoizee(
 const getDistributionPool = memoizee(
   async (distributionPoolAddress: Address) => {
     const rawPool = DistributionPool.createFromAddress(distributionPoolAddress);
-    const pool = (await tonClient).open(rawPool);
+    const pool = tonClient.open(rawPool);
     return pool;
   },
   {
@@ -157,7 +157,7 @@ const getDistributionAccountClaimedRewards = memoizee(
     const rawDistributionAccount = DistributionAccount.createFromAddress(
       distributionAccountAddress
     );
-    const distributionAccount = (await tonClient).open(rawDistributionAccount);
+    const distributionAccount = tonClient.open(rawDistributionAccount);
 
     if (!(await getAccountActive(distributionAccount.address))) {
       return 0n;
@@ -302,7 +302,7 @@ const getAllDedustAssets = memoizee(
 const getVaultLPPriceUSD = memoizee(
   async (lpPrice: number, vaultAddress: Address) => {
     const rawVault = Vault.createFromAddress(vaultAddress);
-    const vault = (await tonClient).open(rawVault);
+    const vault = tonClient.open(rawVault);
     const estimatedLpAmount = await asyncRetry(
       () => vault.getEstimatedLpAmount(1_000_000_000n),
       RETRY_CONFIG
@@ -343,17 +343,11 @@ const getPendingRewardsUSD = memoizee(
 
 const getAccountTonBalance = memoizee(
   async (accountAddress: Address) => {
-    const {
-      last: { seqno },
-    } = await asyncRetry(
-      async () => (await tonClient).getLastBlock(),
+    const balanceInCoins = await asyncRetry(
+      async () => tonClient.getBalance(accountAddress),
       RETRY_CONFIG
     );
-    const { account } = await asyncRetry(
-      async () => (await tonClient).getAccountLite(seqno, accountAddress),
-      RETRY_CONFIG
-    );
-    const balance = fromNano(account.balance.coins);
+    const balance = fromNano(balanceInCoins);
     return balance;
   },
   {
@@ -364,17 +358,11 @@ const getAccountTonBalance = memoizee(
 
 const getAccountActive = memoizee(
   async (accountAddress: Address) => {
-    const {
-      last: { seqno },
-    } = await asyncRetry(
-      async () => (await tonClient).getLastBlock(),
+    const { state } = await asyncRetry(
+      async () => tonClient.getContractState(accountAddress),
       RETRY_CONFIG
     );
-    const { account } = await asyncRetry(
-      async () => (await tonClient).getAccountLite(seqno, accountAddress),
-      RETRY_CONFIG
-    );
-    return account.state.type === 'active';
+    return state === 'active';
   },
   {
     maxAge: 60_000,
@@ -517,7 +505,7 @@ const getStrategyInfoByVault = memoizee(
   async (vaultAddress: Address) => {
     const { strategyAddress } = await getVaultData(vaultAddress);
     const rawStrategy = TonJettonTonStrategy.createFromAddress(strategyAddress);
-    const strategy = (await tonClient).open(rawStrategy);
+    const strategy = tonClient.open(rawStrategy);
 
     return asyncRetry(() => strategy.getStrategyData(), {
       retries: 5,
