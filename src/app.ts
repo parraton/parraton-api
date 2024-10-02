@@ -2,7 +2,7 @@ import fastify from 'fastify';
 import fastifyCors from '@fastify/cors';
 
 import { HOST, PORT } from './config';
-import { getVaults } from './data';
+import { getVaults } from './update';
 
 const getVaultsWithCacheFallback = withCacheFallback(getVaults, 60_000 * 4);
 
